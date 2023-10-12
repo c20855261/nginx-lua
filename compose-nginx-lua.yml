@@ -1,0 +1,57 @@
+version: '3.7'
+services:
+  nginx-lua:
+    container_name: nginx
+    hostname: nginx
+    image: fabiocicerchia/nginx-lua:1.20.0-ubuntu
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/gitlab.conf:/etc/nginx/conf.d/gitlab.conf
+      - ./lua_conf/block_ip.lua:/etc/nginx/block_ip.lua
+      - ./lua_conf/whitelist.txt:/etc/nginx/whitelist.txt:rw
+      - ./log:/var/log/nginx
+    healthcheck:
+      test: ['CMD', 'curl --fail http://localhost/ || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    environment:
+      - TZ=Asia/Shanghai
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+    depends_on:
+      - redis  # 這個設置確保Redis在Nginx之後啟動
+
+  redis:
+    image: redis:4.0.1-alpine
+    restart: always
+    container_name: redis
+    hostname: redis
+    user: root
+    environment:
+      - TZ=Asia/Shanghai
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - "6379:6379"
+    sysctls:
+      - net.core.somaxconn=2048
+    healthcheck:
+      test: "ps -ef | grep redis | grep -v color"
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1GB
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
